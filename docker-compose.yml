@@ -1,0 +1,172 @@
+version: "3.9"
+
+services:
+  auth-service:
+    image: auth-service
+    volumes:
+      - auth-db-data:/var/lib/mysql
+    command: sh -c "./wait-for eureka:8761 && ./start-auth-service"
+    ports:
+      - 8080:8080
+    environment:
+      SPRING_DATASOURCE_URL:  jdbc:mysql://authdb:3306/springsecurity?autoReconnect=true&allowPublicKeyRetrieval=true&useSSL=false
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: password
+      network: outing
+    depends_on:
+      eureka:
+        condition: service_started
+      authdb:
+        condition: service_healthy
+    links:
+      - eureka
+
+
+  friend-service:
+    image: friend-service
+    volumes:
+      - mongo-db-data:/data/db
+    ports:
+      - 8091:8091
+    command: sh -c "./wait-for eureka:8761 && ./start-friend-service"
+    depends_on:
+      eureka:
+        condition: service_started
+      mongodb:
+        condition: service_healthy
+    links:
+      - eureka
+
+  expense-service:
+    image: expense-service
+    volumes:
+      - expense-db-data:/var/lib/mysql
+    command: sh -c "./wait-for eureka:8761 && ./start-expense-service"
+    ports:
+      - 8085:8085
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://expensedb:3306/expenseManager?autoReconnect=true&allowPublicKeyRetrieval=true&useSSL=false
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: password
+      network: outing
+    depends_on:
+      eureka:
+        condition: service_started
+      expensedb:
+        condition: service_healthy
+    links:
+      - eureka
+
+  outing-service:
+    image: outing-service
+    volumes:
+      - outing-db-data:/var/lib/mysql
+    command: sh -c "./wait-for eureka:8761 && ./start-outing-service"
+    ports:
+      - 8097:8097
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://outingdb:3306/outingManager?autoReconnect=true&allowPublicKeyRetrieval=true&useSSL=false
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: password
+      network: outing
+    depends_on:
+      eureka:
+        condition: service_started
+      expensedb:
+        condition: service_healthy
+    links:
+      - eureka
+
+
+  authdb:
+    image: mysql:8.0.34
+    volumes:
+      - auth-db-data:/var/lib/mysql
+    environment:
+      DATABASE_HOST: docker-mysql
+      DATABASE_PORT: 3306
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: springsecurity
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      retries: 30
+      interval: 5s
+
+  mongodb:
+    image: mongo:6.0.8
+    volumes:
+      - mongo-db-data:/data/db
+    environment:
+      DATABASE_HOST: docker-mongo
+      DATABASE_PORT: 27017
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      retries: 30
+      interval: 5s
+
+  expensedb:
+    image: mysql:8.0.34
+    volumes:
+      - expense-db-data:/var/lib/mysql
+    environment:
+      DATABASE_HOST: docker-mysql
+      DATABASE_PORT: 3306
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: expenseManager
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      retries: 30
+      interval: 5s
+
+  outingdb:
+    image: mysql:8.0.34
+    volumes:
+      - outing-db-data:/var/lib/mysql
+    environment:
+      DATABASE_HOST: docker-mysql
+      DATABASE_PORT: 3306
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: outingManager
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      retries: 30
+      interval: 5s
+
+  eureka:
+    image: eureka-server
+    ports:
+      - 8761:8761
+
+  api-gateway:
+    image: api-gateway
+    command: sh -c "./wait-for eureka:8761 && ./start-api-gateway"
+    ports:
+      - 8069:8069
+    depends_on:
+      - eureka
+    links:
+      - eureka
+
+  outing-app:
+    image: outing-app
+    ports:
+      - 4200:4200
+    links:
+      - api-gateway
+
+  commons:
+    image: commons
+    ports:
+      - 8088:8088
+
+
+networks:
+  outing:
+    driver: bridge
+
+
+volumes:
+  auth-db-data:  # Volume for MySQL data
+  mongo-db-data: # Volume for MongoDB data
+  expense-db-data:
+  outing-db-data:
