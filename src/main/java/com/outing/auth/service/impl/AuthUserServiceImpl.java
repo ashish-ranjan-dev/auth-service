@@ -9,7 +9,6 @@ import com.outing.auth.api.dto.SignupDto;
 import com.outing.auth.api.enums.Constants;
 import com.outing.auth.model.AuthUserModel;
 import com.outing.auth.service.AuthUserService;
-import com.outing.commons.api.response.OutingResponse;
 import jakarta.transaction.Transactional;
 import com.outing.auth.security.model.UserModel;
 import com.outing.auth.repository.UserRepository;
@@ -17,17 +16,18 @@ import com.outing.auth.security.util.JwtUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.MultiValueMap;
 
-import java.io.UnsupportedEncodingException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -55,6 +55,9 @@ public class AuthUserServiceImpl implements AuthUserService {
 
     @Value("${server.port}")
     private String portNumber;
+
+    @Autowired
+    private JavaMailSender javaMailSender;
 
     @Override
     public void signup(SignupDto signupDto) {
@@ -107,6 +110,9 @@ public class AuthUserServiceImpl implements AuthUserService {
         AuthUserModel authUserModel = new AuthUserModel(UUID.randomUUID().toString(), signupDto.getUsername(), signupDto.getPassword(), signupDto.getEmail(), signupDto.getName(), UUID.randomUUID().toString(), registerTime, null);
         userRepository.save(authUserModel);
         System.out.println("http://localhost:"+portNumber+"/auth/signup/"+ authUserModel.getId()+"/activate/"+ authUserModel.getActivationId());
+        String subject = "Activate Your Account";
+        String message = "http://localhost:"+portNumber+"/auth/signup/"+ authUserModel.getId()+"/activate/"+ authUserModel.getActivationId();
+        sendEmail(email,subject,message);
     }
 
     @Override
@@ -152,7 +158,7 @@ public class AuthUserServiceImpl implements AuthUserService {
     }
 
     @Override
-    public void activateUser(String userId, String activationId) {
+    public String activateUser(String userId, String activationId) {
         AuthUserModel registeredUser = userRepository.findById(userId).orElseThrow(() -> new OutingException(Constants.USER_NOTFOUND, HttpStatus.NOT_FOUND));
         if (registeredUser.getActivationId() == null || registeredUser.getActivationId().isEmpty()) {
             throw new OutingException(Constants.OLD_ACTIVATION, HttpStatus.BAD_REQUEST);
@@ -162,23 +168,29 @@ public class AuthUserServiceImpl implements AuthUserService {
         }
         registeredUser.setActivationId(null);
         userRepository.save(registeredUser);
+        return registeredUser.getName();
     }
 
     @Override
     public void initiateResetPassword(String usernameOrEmail) {
         AuthUserModel authUserModel = userRepository.findByUsernameOrEmail(usernameOrEmail);
         if (authUserModel == null) {
-            throw new UsernameNotFoundException("username or email not found");
+            throw new OutingException("username or email not found",HttpStatus.NOT_FOUND);
         }
         authUserModel.setResetId(UUID.randomUUID().toString());
         userRepository.save(authUserModel);
         String uriToBeEmail=resetUri.replace("{userId}", authUserModel.getId()).replace("{resetId}", authUserModel.getResetId());
         //TODO:send email having uriToBeEmail
+        String email = authUserModel.getEmail();
+        String subject = "Credentials Change Request";
+        String message = uriToBeEmail;
+        sendEmail(email,subject,message);
         System.out.println(uriToBeEmail);
     }
 
     @Override
     public void resetPassword(String userId, String resetId, ResetPasswordDto resetPasswordDto) {
+        System.out.println(userId);
         if (resetPasswordDto.getNewPassword()==null || resetPasswordDto.getConfirmPassword()==null) {
             throw new OutingException(Constants.UNPROCESSABLE_REQUEST, HttpStatus.UNPROCESSABLE_ENTITY);
         }
@@ -204,4 +216,15 @@ public class AuthUserServiceImpl implements AuthUserService {
     public void deleteExpiredUsers() {
         userRepository.deleteByRegisterTimeBefore(LocalDateTime.now().minusMinutes(7*24*60));
     }
+
+    @Async
+    public void sendEmail(String toEmail,String subject,String message){
+        SimpleMailMessage mailMessage = new SimpleMailMessage();
+        mailMessage.setTo(toEmail);
+        mailMessage.setSubject(subject);
+        mailMessage.setText(message);
+        mailMessage.setFrom("ashishrefjob@gmail.com");
+        javaMailSender.send(mailMessage);
+    }
+
 }

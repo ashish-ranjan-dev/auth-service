@@ -15,7 +15,7 @@ public interface AuthUserService extends Serializable {
 
     String signin(MultiValueMap<String, Object> encodedSigninData) throws UnsupportedEncodingException;
 
-    void activateUser(String userId, String activationId);
+    String activateUser(String userId, String activationId);
 
     void initiateResetPassword(String usernameOrEmail);
 

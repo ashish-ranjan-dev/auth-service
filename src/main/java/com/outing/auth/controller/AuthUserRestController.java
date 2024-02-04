@@ -57,15 +57,15 @@ public class AuthUserRestController{
     }
 
     @GetMapping(value = "/signup/{userId}/activate/{activationId}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Object> activateUser(@PathVariable("userId") String userId, @PathVariable("activationId") String activationId) {
-        authUserService.activateUser(userId, activationId);
+    public OutingResponse<Object> activateUser(@PathVariable("userId") String userId, @PathVariable("activationId") String activationId) {
+        String response = authUserService.activateUser(userId, activationId);
         List<String> messages = new ArrayList<>();
         messages.add(Constants.USER_ACTIVATED);
 //        Response<Void> response = new Response<>(null, messages);
 //        return ResponseEntity.status(HttpStatus.FOUND).location(URI.create("http://localhost:4200/")).build();
 //        return new ResponseEntity<>(response, HttpStatus.OK);
 //        return new OutingResponse<>(null,HttpStatus.FOUND,URI.create("http://localhost:4200/"));
-        return OutingResponse.status(HttpStatus.FOUND).location(URI.create("http://localhost:4200/")).build();
+        return new OutingResponse<>("Hi "+response,HttpStatus.ACCEPTED,messages);
     }
 
     @PostMapping(value = "/reset-password/initiate", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
@@ -75,7 +75,7 @@ public class AuthUserRestController{
         messages.add("Email have been sent to registered email-address");
 //        Response<Void> response = new Response<>(null, messages);
 //        return new ResponseEntity<>(response, HttpStatus.OK);
-        return new OutingResponse<>(null);
+        return new OutingResponse<>(null,HttpStatus.OK,messages);
     }
 
     @PostMapping(value = "/reset-password/user/{userId}/reset/{resetId}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)

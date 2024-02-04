@@ -32,6 +32,7 @@ dependencies {
 //    implementation 'org.springframework.cloud:spring-cloud-starter-config'
     implementation 'javax.xml.bind:jaxb-api:2.4.0-b180830.0359'
     implementation 'org.jetbrains:annotations:24.0.0'
+    implementation group: 'org.springframework.boot', name: 'spring-boot-starter-mail', version: '3.2.1'
     annotationProcessor group: 'org.projectlombok', name: 'lombok', version: '1.18.26'
     compileOnly group: 'org.projectlombok', name: 'lombok', version: '1.18.26'
     runtimeOnly 'com.mysql:mysql-connector-j'
